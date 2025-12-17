@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Environment variables
+.env
+
+# Database
+*.db
+*.sqlite3
+qdrant_data/
+
+# Data and Logs
+data/
+api.log
+
+# Tools (Binaries)
+tools/

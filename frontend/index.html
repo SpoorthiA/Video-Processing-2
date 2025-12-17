@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Retrieval POC</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Video Retrieval System</h1>
+        
+        <div class="search-section">
+            <input type="text" id="searchInput" placeholder="Search for video clips..." onkeyup="event.key === 'Enter' && performSearch()">
+            <button onclick="performSearch()">Search</button>
+        </div>
+        
+        <div id="loading" style="display: none; text-align: center;">
+            <p>Searching...</p>
+        </div>
+        
+        <div id="results" class="results-section"></div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+fastapi==0.109.0
+uvicorn==0.27.0
+sqlalchemy==2.0.23
+pydantic==2.6.1
+pydantic-settings==2.2.1
+python-dotenv==1.0.0
+
+# ASR & NLP
+openai-whisper>=20231117
+whisperx==3.1.1
+transformers>=4.45.0
+qwen-vl-utils
+sentence-transformers>=3.0.0
+torch>=2.3.0
+torchaudio>=2.3.0
+accelerate>=0.30.0
+einops
+timm
+
+# Vector DB
+qdrant-client==1.7.3
+
+# Video Processing
+opencv-python==4.8.1.78
+ffmpeg-python==0.2.0
+
+# Utilities
+requests==2.31.0
+python-multipart==0.0.6
+aiofiles==23.2.1
+numpy==1.24.3
+pandas==2.1.3
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
