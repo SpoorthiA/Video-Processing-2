@@ -32,3 +32,33 @@ def get_db_session():
         yield db
     finally:
         db.close()
+
+def get_transcript_for_video(video_id, model_name):
+    """
+    Helper function to retrieve a specific transcript version.
+    """
+    from .models import Transcript
+    with get_db_session() as db:
+        transcript = db.query(Transcript).filter(
+            Transcript.video_id == video_id,
+            Transcript.model_name == model_name
+        ).first()
+        # Detach from session so it can be used outside
+        if transcript:
+            db.expunge(transcript)
+        return transcript
+
+def get_captions_for_video(video_id, model_name):
+    """
+    Helper function to retrieve specific captions version.
+    """
+    from .models import VideoCaptions
+    with get_db_session() as db:
+        captions = db.query(VideoCaptions).filter(
+            VideoCaptions.video_id == video_id,
+            VideoCaptions.model_name == model_name
+        ).first()
+        # Detach from session so it can be used outside
+        if captions:
+            db.expunge(captions)
+        return captions

@@ -11,8 +11,9 @@ from qdrant_client.http import models as RestModels
 from qdrant_client.models import PointStruct, VectorParams, Distance
 
 from agents.common.config import settings
-from agents.common.database import get_db_session
-from agents.common.models import Video, Transcript, Chunk
+from agents.common.database import get_db_session, get_transcript_for_video, get_captions_for_video
+from agents.common.models import Video, Transcript, Chunk, VideoCaptions
+from agents.common.enums import TextEmbeddingModel
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +46,21 @@ class EmbeddingProcessor:
     def load_model(self):
         if not self.model:
             logger.info(f"Loading Embedding model: {self.model_name}...")
-            self.model = SentenceTransformer(self.model_name, device=self.device)
+            
+            # Handle specific model requirements if needed
+            trust_remote_code = False
+            if self.model_name in [TextEmbeddingModel.NOMIC_EMBED_V1_5, TextEmbeddingModel.BGE_M3]:
+                trust_remote_code = True
+                
+            self.model = SentenceTransformer(self.model_name, device=self.device, trust_remote_code=trust_remote_code)
             logger.info("Model loaded successfully.")
             
             # Ensure Collection Exists
             self._ensure_collection()
+
+    def _get_collection_name(self, base_name):
+        safe_model_name = self.model_name.replace("/", "-").replace(".", "-").lower()
+        return f"{base_name}_{safe_model_name}"
 
     def _ensure_collection(self):
         try:
@@ -59,7 +70,11 @@ class EmbeddingProcessor:
             
             dimension = self.model.get_sentence_embedding_dimension()
             
-            for name in [self.dialogue_collection, self.visual_collection]:
+            # Use model-specific collection names
+            dialogue_col = self._get_collection_name(self.dialogue_collection)
+            visual_col = self._get_collection_name(self.visual_collection)
+            
+            for name in [dialogue_col, visual_col]:
                 if name not in existing_names:
                     logger.info(f"Creating Qdrant collection: {name}")
                     client.create_collection(
@@ -112,7 +127,7 @@ class EmbeddingProcessor:
             "duration": end - start
         }
 
-    def _process_stream(self, segments, collection_name, video, transcript, db, client):
+    def _process_stream(self, segments, collection_name, video, source_obj, db, client):
         if not segments:
             return
 
@@ -127,11 +142,15 @@ class EmbeddingProcessor:
         for i, chunk_data in enumerate(chunks_data):
             chunk_id = str(uuid.uuid4())
             
+            transcript_id = source_obj.id if isinstance(source_obj, Transcript) else None
+            captions_id = source_obj.id if isinstance(source_obj, VideoCaptions) else None
+            
             # DB Record
             new_chunk = Chunk(
                 id=chunk_id,
                 video_id=video.id,
-                transcript_id=transcript.id,
+                transcript_id=transcript_id,
+                captions_id=captions_id,
                 chunk_index=i,
                 text=chunk_data["text"],
                 start_time_seconds=chunk_data["start"],
@@ -151,7 +170,8 @@ class EmbeddingProcessor:
                     "text": chunk_data["text"],
                     "start_time": chunk_data["start"],
                     "end_time": chunk_data["end"],
-                    "type": "visual" if collection_name == self.visual_collection else "dialogue"
+                    "type": "visual" if collection_name == self.visual_collection else "dialogue",
+                    "model_name": source_obj.model_name if source_obj else "unknown"
                 }
             ))
 
@@ -170,42 +190,54 @@ class EmbeddingProcessor:
 
             logger.info(f"Embedding processing for: {video.filename}")
             
-            # Get transcript
-            transcript = db.query(Transcript).filter(Transcript.video_id == video.id).first()
-            if not transcript or not transcript.json_file_path:
-                logger.error("No transcript found for video.")
-                return
-            
-            json_path = Path(transcript.json_file_path)
+        # Determine active models
+        speech_model_name = settings.WHISPER_MODEL
+        vision_model_name = settings.VISION_MODEL
         
+        transcript = get_transcript_for_video(video_id, speech_model_name)
+        captions = get_captions_for_video(video_id, vision_model_name)
+        
+        if not transcript and not captions:
+            logger.error(f"No artifacts found for {video.filename} with models {speech_model_name}, {vision_model_name}.")
+            return
+            
         # Processing Block
         try:
             self.load_model()
-            
-            with open(json_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                # Fallback to 'segments' if specific keys missing (backward compatibility)
-                audio_segments = data.get("audio_segments", [])
-                visual_segments = data.get("visual_segments", [])
-                
-                if not audio_segments and not visual_segments:
-                    # Try legacy format
-                    all_segments = data.get("segments", [])
-                    audio_segments = [s for s in all_segments if s.get("type") != "visual"]
-                    visual_segments = [s for s in all_segments if s.get("type") == "visual"]
-
             client = self.get_qdrant_client()
             
             with get_db_session() as db:
-                # Re-fetch for session attachment
+                # Re-fetch video for session attachment
                 video = db.query(Video).filter(Video.id == video_id).first()
-                transcript = db.query(Transcript).filter(Transcript.video_id == video.id).first()
                 
+                # Determine collection names
+                dialogue_col = self._get_collection_name(self.dialogue_collection)
+                visual_col = self._get_collection_name(self.visual_collection)
+
                 # Process Dialogue Stream
-                self._process_stream(audio_segments, self.dialogue_collection, video, transcript, db, client)
+                if transcript:
+                    json_path = Path(transcript.json_file_path)
+                    if json_path.exists():
+                        with open(json_path, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                            # Handle new format
+                            audio_segments = data.get("segments", [])
+                            
+                        # Re-fetch transcript for session attachment
+                        transcript = db.query(Transcript).filter(Transcript.id == transcript.id).first()
+                        self._process_stream(audio_segments, dialogue_col, video, transcript, db, client)
                 
                 # Process Visual Stream
-                self._process_stream(visual_segments, self.visual_collection, video, transcript, db, client)
+                if captions:
+                    json_path = Path(captions.json_file_path)
+                    if json_path.exists():
+                        with open(json_path, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                            visual_segments = data.get("segments", [])
+                            
+                        # Re-fetch captions for session attachment
+                        captions = db.query(VideoCaptions).filter(VideoCaptions.id == captions.id).first()
+                        self._process_stream(visual_segments, visual_col, video, captions, db, client)
 
                 video.status = "ready"
                 db.commit()

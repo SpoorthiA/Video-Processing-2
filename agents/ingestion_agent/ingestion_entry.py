@@ -18,7 +18,6 @@ logger = logging.getLogger("ingestion_agent")
 # Setup FFmpeg Path
 possible_ffmpeg_paths = [
     Path("tools/ffmpeg/ffmpeg-7.0-full_build/bin"),      # If running from root
-    Path("../tools/ffmpeg/ffmpeg-7.0-full_build/bin"),   # If running from video-retrieval-poc
 ]
 
 tools_ffmpeg_bin = None

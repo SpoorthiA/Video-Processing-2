@@ -1,6 +1,7 @@
 from typing import Optional
 from pydantic_settings import BaseSettings
 from pathlib import Path
+from .enums import SpeechModel, VisionModel, TextEmbeddingModel
 
 class Settings(BaseSettings):
     """Loads and manages configuration from .env file or environment variables."""
@@ -9,7 +10,6 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     QDRANT_URL: Optional[str] = None
     QDRANT_PATH: str = "qdrant_storage" # Local storage path
-    QDRANT_COLLECTION_NAME: str = "video_chunks" # Legacy/Fallback
     QDRANT_DIALOGUE_COLLECTION: str = "dialogue_chunks"
     QDRANT_VISUAL_COLLECTION: str = "visual_chunks"
     
@@ -21,8 +21,10 @@ class Settings(BaseSettings):
     THUMBNAIL_FOLDER: Path = Path("./data/thumbnails")
     
     # --- AI Models ---
-    WHISPER_MODEL: str = "base"
-    EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
+    WHISPER_MODEL: str = SpeechModel.FASTER_WHISPER_BASE.value
+    EMBEDDING_MODEL: str = TextEmbeddingModel.MINILM_L6.value
+    VISION_MODEL: str = VisionModel.BLIP_BASE.value
+    
     CHUNK_SIZE_SECONDS: int = 10
     CHUNK_OVERLAP_SECONDS: int = 2
     
@@ -32,7 +34,7 @@ class Settings(BaseSettings):
     
     # --- API Settings ---
     API_HOST: str = "0.0.0.0"
-    API_PORT: int = 8000
+    API_PORT: int = 8080
     API_WORKERS: int = 4
     
     # --- Logging ---

@@ -1,27 +1,192 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video Retrieval POC</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <h1>🎬 Video Retrieval System</h1>
-        
-        <div class="search-section">
-            <input type="text" id="searchInput" placeholder="Search for video clips..." onkeyup="event.key === 'Enter' && performSearch()">
-            <button onclick="performSearch()">Search</button>
-        </div>
-        
-        <div id="loading" style="display: none; text-align: center;">
-            <p>Searching...</p>
-        </div>
-        
-        <div id="results" class="results-section"></div>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="pipeline-selector">
+                    <label>ACTIVE PIPELINE</label>
+                    <div class="pipeline-controls">
+                        <select id="configSelect"></select>
+                        <button id="addConfigBtn" title="New Configuration"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div class="config-summary-row">
+                        <span id="configSummary" class="config-summary">Loading...</span>
+                        <button id="editConfigBtn" title="Edit Configuration"><i class="fas fa-cog"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div id="dropZone" class="upload-zone">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Upload Video</p>
+                    <span>Drag & drop video here or click to browse</span>
+                    <input type="file" id="fileInput" accept="video/*" style="display: none;">
+                    <div id="uploadStatus"></div>
+                </div>
+            </div>
+
+            <div class="sidebar-section flex-grow">
+                <div class="section-header">
+                    <i class="fas fa-database"></i> INGESTED DATA
+                </div>
+                <div class="data-tabs">
+                    <div class="data-tab active" data-view="all">All</div>
+                    <div class="data-tab" data-view="recent">Recent</div>
+                    <div class="data-tab" data-view="favorites">Favorites</div>
+                </div>
+                <div id="ingestedDataList" class="data-list">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <div class="sidebar-section logs-section">
+                <div class="section-header" id="toggleLogs" style="cursor: pointer;">
+                    <span><i class="fas fa-terminal"></i> System Logs</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div id="logContainer" class="log-container">
+                    <!-- Logs go here -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="logo">
+                    <i class="fas fa-robot"></i> Video Retrieval Assistant
+                </div>
+                <div class="theme-toggle">
+                    <button id="themeToggle"><i class="fas fa-moon"></i></button>
+                </div>
+            </header>
+
+            <div id="chatHistory" class="chat-history">
+                <div class="message system-message">
+                    <div class="message-content">
+                        Hello! I can help you find specific moments in your video library. 
+                        Upload a video to get started, or search through existing content.
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <input type="text" id="searchInput" placeholder="Describe the scene you're looking for...">
+                    <button id="searchBtn"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </main>
     </div>
-    
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <h2>Pipeline Configuration</h2>
+                    <p class="modal-description">Customize the models used for indexing this session.</p>
+                </div>
+                <button class="close-modal-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                
+                <!-- Vision Toggle Section -->
+                <div class="toggle-section">
+                    <div class="toggle-label">
+                        <span class="toggle-title">Enable Vision Analysis</span>
+                        <span class="toggle-desc">Process video frames to extract visual descriptions.</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="enableVisionCheck">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- Vision Models -->
+                <div class="config-section" id="visionSectionContainer">
+                    <div class="section-label">Vision Models</div>
+                    <div class="options-grid" id="visionOptions">
+                        <div class="option-card" data-value="qwen2.5-vl">
+                            <div class="card-content">
+                                <span class="model-name">Qwen 2.5 VL</span>
+                            </div>
+                        </div>
+                        <div class="option-card" data-value="blip-image-captioning-large">
+                            <div class="card-content">
+                                <span class="model-name">BLIP Large</span>
+                            </div>
+                        </div>
+                        <div class="option-card" data-value="florence-2-large">
+                            <div class="card-content">
+                                <span class="model-name">Florence-2</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Speech Section -->
+                <div class="config-section">
+                    <div class="section-label">Speech Recognition</div>
+                    <div class="options-grid" id="speechOptions">
+                        <div class="option-card" data-value="faster-whisper-base">
+                            <div class="card-content">
+                                <span class="model-name">Whisper Base</span>
+                            </div>
+                        </div>
+                        <div class="option-card" data-value="faster-whisper-large">
+                            <div class="card-content">
+                                <span class="model-name">Whisper Large</span>
+                            </div>
+                        </div>
+                        <div class="option-card" data-value="distil-whisper">
+                            <div class="card-content">
+                                <span class="model-name">Distil-Whisper</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Embedding Section -->
+                <div class="config-section">
+                    <div class="section-label">Embeddings</div>
+                    <div class="options-grid" id="embeddingOptions">
+                        <div class="option-card" data-value="all-minilm-l6-v2">
+                            <div class="card-content">
+                                <span class="model-name">MiniLM-L6</span>
+                            </div>
+                        </div>
+                        <div class="option-card" data-value="nomic-embed">
+                            <div class="card-content">
+                                <span class="model-name">Nomic Embed</span>
+                            </div>
+                        </div>
+                        <div class="option-card" data-value="bge-m3">
+                            <div class="card-content">
+                                <span class="model-name">BGE-M3</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button id="cancelConfigBtn" class="btn-secondary">Cancel</button>
+                <button id="saveConfigBtn" class="btn-primary">Save Configuration</button>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

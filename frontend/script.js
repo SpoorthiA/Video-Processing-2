@@ -455,30 +455,73 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Modal Handling ---
     const modal = document.getElementById("settingsModal");
-    const span = document.getElementsByClassName("close-modal")[0];
+    const closeModalBtn = document.querySelector(".close-modal-btn");
     const saveBtn = document.getElementById("saveConfigBtn");
     const cancelBtn = document.getElementById("cancelConfigBtn");
+
+    // Helper to handle card selection
+    function setupCardSelection(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        const cards = container.querySelectorAll('.option-card');
+        cards.forEach(card => {
+            card.addEventListener('click', () => {
+                // Deselect all in this container
+                cards.forEach(c => c.classList.remove('selected'));
+                // Select clicked
+                card.classList.add('selected');
+            });
+        });
+    }
+
+    // Initialize card listeners
+    setupCardSelection('visionOptions');
+    setupCardSelection('speechOptions');
+    setupCardSelection('embeddingOptions');
+
+    // Toggle Vision Section Logic
+    const visionCheck = document.getElementById('enableVisionCheck');
+    const visionSection = document.getElementById('visionSectionContainer');
+
+    if (visionCheck && visionSection) {
+        visionCheck.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                visionSection.classList.remove('dimmed');
+            } else {
+                visionSection.classList.add('dimmed');
+            }
+        });
+    }
 
     function openSettingsModal() {
         if (!modal) return;
         
         const config = configurations[currentConfigId];
         
-        // Set Vision Model
-        const visionRadio = document.querySelector(`input[name="visionModel"][value="${config.vision_model}"]`);
-        if (visionRadio) visionRadio.checked = true;
+        // Helper to select card
+        const selectCard = (containerId, value) => {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            // Clear previous selection
+            container.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+            
+            // Select new
+            const card = container.querySelector(`.option-card[data-value="${value}"]`);
+            if (card) card.classList.add('selected');
+        };
 
-        // Set Speech Model
-        const speechRadio = document.querySelector(`input[name="speechModel"][value="${config.speech_model}"]`);
-        if (speechRadio) speechRadio.checked = true;
+        selectCard('visionOptions', config.vision_model);
+        selectCard('speechOptions', config.speech_model);
+        selectCard('embeddingOptions', config.embedding_model);
 
-        // Set Embedding Model
-        const embedRadio = document.querySelector(`input[name="embeddingModel"][value="${config.embedding_model}"]`);
-        if (embedRadio) embedRadio.checked = true;
-
-        // Set Enable Vision Checkbox
-        const visionCheck = document.getElementById('enableVisionCheck');
-        if (visionCheck) visionCheck.checked = config.enable_vision;
+        // Set Enable Vision Checkbox & Dimming State
+        if (visionCheck) {
+            visionCheck.checked = config.enable_vision;
+            // Trigger change event to update UI state
+            visionCheck.dispatchEvent(new Event('change'));
+        }
 
         modal.style.display = "flex";
     }
@@ -486,17 +529,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveConfiguration() {
         const config = configurations[currentConfigId];
 
-        // Get Vision Model
-        const visionRadio = document.querySelector('input[name="visionModel"]:checked');
-        if (visionRadio) config.vision_model = visionRadio.value;
+        // Helper to get selected value
+        const getSelectedValue = (containerId) => {
+            const container = document.getElementById(containerId);
+            if (!container) return null;
+            const card = container.querySelector('.option-card.selected');
+            return card ? card.getAttribute('data-value') : null;
+        };
 
-        // Get Speech Model
-        const speechRadio = document.querySelector('input[name="speechModel"]:checked');
-        if (speechRadio) config.speech_model = speechRadio.value;
+        const visionVal = getSelectedValue('visionOptions');
+        if (visionVal) config.vision_model = visionVal;
 
-        // Get Embedding Model
-        const embedRadio = document.querySelector('input[name="embeddingModel"]:checked');
-        if (embedRadio) config.embedding_model = embedRadio.value;
+        const speechVal = getSelectedValue('speechOptions');
+        if (speechVal) config.speech_model = speechVal;
+
+        const embedVal = getSelectedValue('embeddingOptions');
+        if (embedVal) config.embedding_model = embedVal;
 
         // Get Enable Vision Checkbox
         const visionCheck = document.getElementById('enableVisionCheck');
@@ -507,8 +555,8 @@ document.addEventListener('DOMContentLoaded', () => {
         addLog(`Configuration '${config.name}' updated.`);
     }
 
-    if (span) {
-        span.onclick = function() {
+    if (closeModalBtn) {
+        closeModalBtn.onclick = function() {
             modal.style.display = "none";
         }
     }

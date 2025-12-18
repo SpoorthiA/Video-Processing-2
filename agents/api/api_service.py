@@ -23,7 +23,6 @@ sys.path.append(os.getcwd())
 # Setup FFmpeg Path
 possible_ffmpeg_paths = [
     Path("tools/ffmpeg/ffmpeg-7.0-full_build/bin"),      # If running from root
-    Path("../tools/ffmpeg/ffmpeg-7.0-full_build/bin"),   # If running from video-retrieval-poc
 ]
 
 tools_ffmpeg_bin = None
@@ -176,7 +175,7 @@ def search(q: str = Query(..., min_length=2), video_id: Optional[str] = Query(No
         
     # 1. Embed Query
     # Use .embed() from adapter which returns List[float]
-    query_vector = state.model.embed(q)
+    query_vector = state.model.embed(q, is_query=True)
     
     # 2. Search Qdrant
     try:

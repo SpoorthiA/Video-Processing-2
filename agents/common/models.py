@@ -8,7 +8,8 @@ from sqlalchemy import (
     Text,
     ForeignKey,
     BigInteger,
-    JSON
+    JSON,
+    UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -34,6 +35,7 @@ class Video(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     transcripts = relationship("Transcript", back_populates="video", cascade="all, delete-orphan")
+    captions = relationship("VideoCaptions", back_populates="video", cascade="all, delete-orphan")
     chunks = relationship("Chunk", back_populates="video", cascade="all, delete-orphan")
 
 class Transcript(Base):
@@ -41,21 +43,40 @@ class Transcript(Base):
     
     id = Column(String(36), primary_key=True, default=generate_uuid)
     video_id = Column(String(36), ForeignKey("videos.id"), nullable=False)
+    model_name = Column(String(50), nullable=False)
     full_text = Column(Text)
     vtt_file_path = Column(Text)
     json_file_path = Column(Text)
     word_count = Column(Integer)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
+    __table_args__ = (UniqueConstraint('video_id', 'model_name', name='uq_video_transcript_model'),)
+    
     video = relationship("Video", back_populates="transcripts")
     chunks = relationship("Chunk", back_populates="transcript", cascade="all, delete-orphan")
+
+class VideoCaptions(Base):
+    __tablename__ = "video_captions"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    video_id = Column(String(36), ForeignKey("videos.id"), nullable=False)
+    model_name = Column(String(50), nullable=False)
+    full_text = Column(Text)
+    json_file_path = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    __table_args__ = (UniqueConstraint('video_id', 'model_name', name='uq_video_captions_model'),)
+    
+    video = relationship("Video", back_populates="captions")
+    chunks = relationship("Chunk", back_populates="captions", cascade="all, delete-orphan")
 
 class Chunk(Base):
     __tablename__ = "chunks"
     
     id = Column(String(36), primary_key=True, default=generate_uuid)
     video_id = Column(String(36), ForeignKey("videos.id"), nullable=False)
-    transcript_id = Column(String(36), ForeignKey("transcripts.id"))
+    transcript_id = Column(String(36), ForeignKey("transcripts.id"), nullable=True)
+    captions_id = Column(String(36), ForeignKey("video_captions.id"), nullable=True)
     chunk_index = Column(Integer, nullable=False)
     text = Column(Text, nullable=False)
     start_time_seconds = Column(Float, nullable=False)
@@ -66,6 +87,7 @@ class Chunk(Base):
     
     video = relationship("Video", back_populates="chunks")
     transcript = relationship("Transcript", back_populates="chunks")
+    captions = relationship("VideoCaptions", back_populates="chunks")
 
 class SearchLog(Base):
     __tablename__ = "search_logs"

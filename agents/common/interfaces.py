@@ -48,7 +48,7 @@ class EmbeddingModel(ABC):
         pass
     
     @abstractmethod
-    def embed(self, text: str) -> List[float]:
+    def embed(self, text: str, is_query: bool = False) -> List[float]:
         """Generates an embedding vector for the text."""
         pass
     
